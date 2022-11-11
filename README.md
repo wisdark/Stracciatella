@@ -1,9 +1,10 @@
-# Stracciatella v0.5
+# Stracciatella v0.7
 
-Powershell runspace from within C# (aka `SharpPick` technique) with AMSI and Script Block Logging disabled for your pleasure.
+Powershell runspace from within C# (aka `SharpPick` technique) with AMSI, ETW and Script Block Logging disabled for your pleasure.
 
 Nowadays, when Powershell got severly instrumented by use of techniques such as:
 * AMSI
+* ETW
 * Script Block Logging
 * Transcript file
 * Modules logging
@@ -13,6 +14,7 @@ Advanced attackers must find ways to circumvent these efforts in order to delive
 
 This program builds on top of bypasses for specific techniques included in:
 * [Disable-Amsi.ps1](https://github.com/mgeeky/Penetration-Testing-Tools/blob/master/red-teaming/Disable-Amsi.ps1)
+* [KillETW.ps1 by tandasat](https://gist.githubusercontent.com/tandasat/e595c77c52e13aaee60e1e8b65d2ba32/raw/115d0c513d041243a06a764546fd57e7c2f5e47e/KillETW.ps1)
 * [Disable-ScriptLogging.ps1](https://github.com/mgeeky/Penetration-Testing-Tools/blob/master/red-teaming/Disable-ScriptLogging.ps1)
 
 Which in turn was based on following researches:
@@ -30,18 +32,17 @@ Also, the source code borrows implementation of `CustomPSHost` from Lee.
 
 This project inherits from above researches and great security community in order to provide close-to-be-effective Powershell environment with defenses disabled on startup.
 
-Now easily compiles with .NET 3.5, 4.0 whereas if compiled with .NET Framework 4.7.1+ an additional functionality is included that allows to unload DLLs constituting CLM bypass artefacts and attempts to delete them afterwards (hardly working to be honest).
+Now easily compiles with .NET 4.0 whereas if compiled with .NET Framework 4.7.1+ an additional functionality is included that allows to unload DLLs constituting CLM bypass artefacts and attempts to delete them afterwards (hardly working to be honest).
 
-Best mileage one gets with Stracciatella compiled with .NET 3.5.
+Best mileage one gets with Stracciatella compiled with .NET 4.0.
 
 ## OpSec
 
 * This program provides functionality to decode passed parameters on the fly, using Xor single-byte decode
-* Before launching any command, it makes sure to disable AMSI using two approaches
+* Before launching any command, it makes sure to disable AMSI using two approaches and ETW
 * Before launching any command, it makes sure to disable Script Block logging using two approaches
 * This program does not patch any system library, system native code (think amsi.dll)
 * Efforts were made to not store decoded script/commands excessively long, in order to protect itself from memory-dumping techniques governed by EDRs and AVs
-* The resulting binary may be considered bit too large, that's because `Costura.Fody` NuGet package is used which bundles `System.Management.Automation.dll` within resulting assembly
 
 
 ## Usage
@@ -51,9 +52,9 @@ There are couple of options available:
 ```powershell
 PS D:\> Stracciatella -h
 
-  :: Stracciatella - Powershell runspace with AMSI and Script Block Logging disabled.
-  Mariusz Banach / mgeeky, '19-21 <mb@binary-offensive.com>
-  v0.5
+  :: Stracciatella - Powershell runspace with AMSI, ETW and Script Block Logging disabled.
+  Mariusz Banach / mgeeky, '19-22 <mb@binary-offensive.com>
+  v0.7
 
 Usage: stracciatella.exe [options] [command]
   -s <path>, --script <path> - Path to file containing Powershell script to execute. If not options given, will enter
@@ -88,15 +89,16 @@ Here are couple of examples presenting use cases:
 ```powershell
 PS D:\> Stracciatella.exe -v
 
-  :: Stracciatella - Powershell runspace with AMSI and Script Block Logging disabled.
-  Mariusz Banach / mgeeky, '19-21 <mb@binary-offensive.com>
-  v0.5
+  :: Stracciatella - Powershell runspace with AMSI, ETW and Script Block Logging disabled.
+  Mariusz Banach / mgeeky, '19-22 <mb@binary-offensive.com>
+  v0.7
 
 [.] Powershell's version: 5.1
 [.] Language Mode: FullLanguage
 [+] No need to disable Constrained Language Mode. Already in FullLanguage.
 [+] Script Block Logging Disabled.
 [+] AMSI Disabled.
+[+] ETW Disabled.
 
 Stracciatella D:\> $PSVersionTable
 
@@ -138,12 +140,13 @@ Then we feed `encoder.py` output as input being an encoded command for Stracciat
 ```powershell
 PS D:\> Stracciatella.exe -v -x 0x31 -c "ZkNYRVQceV5CRRETeEURRl5DWkIRXVhaVBFQEVJZUENcEBMRChEVdElUUkRFWF5fcl5fRVRJRR9iVEJCWF5fYkVQRVQffVBfVkRQVlR8XlVU" .\Test2.ps1
 
-  :: Stracciatella - Powershell runspace with AMSI and Script Block Logging disabled.
-  Mariusz Banach / mgeeky, '19-21 <mb@binary-offensive.com>
-  v0.5
+  :: Stracciatella - Powershell runspace with AMSI, ETW and Script Block Logging disabled.
+  Mariusz Banach / mgeeky, '19-22 <mb@binary-offensive.com>
+  v0.7
 
 [.] Will load script file: '.\Test2.ps1'
 [+] AMSI Disabled.
+[+] ETW Disabled.
 [+] Script Block Logging Disabled.
 [.] Language Mode: FullLanguage
 
@@ -167,12 +170,19 @@ Stracciatella comes with Aggressor script that when loaded exposes `stracciatell
 
 Following Cobalt Strike commands are available:
 
-- *`stracciatella [-v] <command>`* - executes given commands
-- *`stracciatella-remote [-v] <machine> <pipename> <command>`* - executes given commands on a remote machine on specified pipe
-- *`stracciatella-import <scriptpath>`* - imports a powershell script for use with Stracciatella
-- *`stracciatella-script <scriptpath> <command>`* - pre-loads Powershell command with a specified Powershell (ps1) script (combination of `stracciatella-import` and `stracciatella` in single operation)
-- *`stracciatella-clear`* - clears imported script on that Beacon
-- *`stracciatella-timeout <milliseconds>`* - adjusts default named pipe read timeout
+| Cobalt Strike command                                      | Description                                                                                                                                           |
+|------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `stracciatella [-v] <command>`                             | executes given commands                                                                                                                               |
+| `stracciatella-remote [-v] <machine> <pipename> <command>` | executes given commands on a remote machine on specified pipe                                                                                         |
+| `stracciatella-import <scriptpath>`                        | imports a powershell script for use with Stracciatella                                                                                                |
+| `stracciatella-script <scriptpath> <command>`              | pre-loads Powershell command with a specified Powershell (ps1) script (combination of `stracciatella-import` and `stracciatella` in single operation) |
+| `stracciatella-clear`                                      | clears imported script on that Beacon                                                                                                                 |
+| `stracciatella-timeout <milliseconds>`                     | adjusts default named pipe read timeout                                                                                                               |
+| `bofnet_loadstracciatella`                                 | loads Stracciatella.exe into BOF.NET (if one is used)                                                                                                 |
+| `bofnet_stracciatella <command>`                           | (non-blocking) Runs Powershell commands in a safe Stracciatella runspace via BOF.NET `bofnet_jobassembly`                                             |
+| `bofnet_executestracciatella <command>`                    | (blocking) Runs Powershell commands in a safe Stracciatella runspace via BOF.NET `bofnet_executeassembly`                                             |
+| `bofnet_stracciatella_script <scriptpath> <command>`       | Preloads a specified Powershell script and launches given command with parameters (via BOF.NET)                                                       |
+
 
 One of the strategies for working with Stracciatella could be to configure a long enough pipe read timeout (1), launch it on a remote machine (2) thus having option for lateral movement over named pipe with a litle help of Stracciatella.
 
@@ -233,6 +243,24 @@ The associated aggressor script leverages internal Beacon routines to write to a
 
 Sometimes we have Powershell scripts that do not expose any function or reflectively load .NET modules that we would like to invoke from a Powershell runtime. To facilitate that use case, the `stracciatella-script <scriptpath> <command` Beacon command can be used. It reads specified powershell script file and appends given `<command>` separated by semicolon to that script.
 
+### BOF.NET support
+
+Stracciatella's Aggressor script (CNA) detects whether there is BOF.NET loaded and if so, exposes a command:
+
+`bofnet_loadstracciatella`
+
+That issues `bofnet_load stracciatella.exe`. Additionally, Stracciatella will then run through `bofnet_jobassembly` instead of Cobalt's builtin `execute-assembly`. 
+
+That behaviour is adjustable by changing global variable in `stracciatella.cna` script:
+
+```perl
+#
+# If there's BOF.NET loaded in Cobalt Strike, prefer `bofnet_jobassembly` command over `execute-assembly`.
+# This is useful when we want to switch our tactics to running inline/in-process via BOF.NET instead of fork & run.
+#
+$FAVOR_BOFNET_INSTEAD_OF_EXECUTE_ASSEMBLY = "true";
+```
+
 
 ## How do you disable AMSI & Script Block logging?
 
@@ -267,11 +295,12 @@ This script contains malicious content and has been blocked by your antivirus so
 PS D:\> .\Stracciatella.exe -v
 
   :: Stracciatella - Powershell runspace with AMSI and Script Block Logging disabled.
-  Mariusz Banach / mgeeky, '19-21 <mb@binary-offensive.com>
-  v0.5
+  Mariusz Banach / mgeeky, '19-22 <mb@binary-offensive.com>
+  v0.7
 
 [-] It looks like no script path was given.
 [+] AMSI Disabled.
+[+] ETW Disabled.
 [+] Script Block Logging Disabled.
 [.] Language Mode: FullLanguage
 
@@ -318,3 +347,20 @@ Currently, the way the Stracciatella provides runspace for powershell commands i
 - Avi Gimpel
 - Lee Christensen, @tifkin_
 
+
+---
+
+### ☕ Show Support ☕
+
+This and other projects are outcome of sleepless nights and **plenty of hard work**. If you like what I do and appreciate that I always give back to the community,
+[Consider buying me a coffee](https://github.com/sponsors/mgeeky) _(or better a beer)_ just to say thank you! 💪 
+
+---
+
+## Author
+
+```   
+   Mariusz Banach / mgeeky, '20-22
+   <mb [at] binary-offensive.com>
+   (https://github.com/mgeeky)
+```
